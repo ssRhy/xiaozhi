@@ -9,6 +9,11 @@
 #include "assets/lang_config.h"
 #include "mcp_server.h"
 
+// 添加这行
+extern "C" {
+#include "boards/common/app_imu.h"
+}
+
 #include <cstring>
 #include <esp_log.h>
 #include <cJSON.h>
@@ -332,6 +337,9 @@ void Application::Start() {
 
     /* Setup the display */
     auto display = board.GetDisplay();
+
+    // 临时完全禁用IMU，解决初始化界面闪屏问题
+    // app_imu_init();
 
     /* Setup the audio service */
     auto codec = board.GetAudioCodec();

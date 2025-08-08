@@ -36,6 +36,8 @@ dependencies:
   espressif/esp_mmap_assets: '>=1.2'
   txp666/otto-emoji-gif-component: ~1.0.2
   espressif/adc_battery_estimation: ^0.2.0
+  espressif/i2c_bus: '*'  # I2C bus driver for BMI270
+  espressif2022/bmi270: '*'  # BMI270 IMU sensor for dice shake detection
 
   # SenseCAP Watcher Board
   wvirgil123/esp_jpeg_simd:

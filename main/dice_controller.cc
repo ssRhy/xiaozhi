@@ -5,6 +5,10 @@
 #include "display/display.h"
 #include <cmath>
 
+extern "C" {
+#include "boards/common/app_imu.h"
+}
+
 static const char* TAG = "DiceController";
 
 DiceController::~DiceController() {
@@ -19,7 +23,7 @@ void DiceController::Initialize() {
     // 初始化随机数种子 - 使用更好的随机种子
     uint32_t seed = esp_random();
     srand(seed);
-    ESP_LOGI(TAG, "DiceController initialized with random seed: %u", seed);
+    // 不再使用ImuSensor类，改用真正的BMI270驱动
 }
 
 void DiceController::SetDiceResultCallback(std::function<void(int)> callback) {
@@ -29,7 +33,6 @@ void DiceController::SetDiceResultCallback(std::function<void(int)> callback) {
 void DiceController::AutoCloseCallback(void* arg) {
     DiceController* controller = static_cast<DiceController*>(arg);
     if (controller && controller->IsActive()) {
-        ESP_LOGI(TAG, "Auto-closing dice mode");
         controller->StopDiceMode();
     }
 }
@@ -52,25 +55,21 @@ void DiceController::SetAutoClose(int seconds) {
     };
     
     if (esp_timer_create(&timer_args, &auto_close_timer_) == ESP_OK) {
-        ESP_LOGI(TAG, "Starting auto-close timer for %d seconds", seconds);
         esp_timer_start_once(auto_close_timer_, seconds * 1000000LL);  // 转换为微秒
-    } else {
-        ESP_LOGE(TAG, "Failed to create auto-close timer");
     }
 }
 
 void DiceController::StartDiceMode() {
     if (is_active_) {
-        ESP_LOGW(TAG, "Dice mode already active");
         return;
     }
     
-    ESP_LOGI(TAG, "Starting dice mode - taking over display");
+    // 尝试安全初始化IMU
+    app_imu_init();
     
     // 获取Display实例
     auto display = Board::GetInstance().GetDisplay();
     if (!display) {
-        ESP_LOGE(TAG, "Failed to get display instance");
         return;
     }
     
@@ -81,7 +80,6 @@ void DiceController::StartDiceMode() {
         // 获取当前活动屏幕
         lv_obj_t* screen = lv_screen_active();
         if (!screen) {
-            ESP_LOGE(TAG, "No active screen found");
             return;
         }
         
@@ -109,7 +107,6 @@ void DiceController::StartDiceMode() {
         // 创建骰子对象 - 使用更大的尺寸
         dice_cube_ = std::make_unique<DiceCube>(dice_container, 200, 200);
         if (!dice_cube_->Initialize()) {
-            ESP_LOGE(TAG, "Failed to initialize dice cube");
             lv_obj_del(dice_screen_);
             dice_screen_ = nullptr;
             dice_cube_.reset();
@@ -126,15 +123,12 @@ void DiceController::StartDiceMode() {
     }
     
     is_active_ = true;
-    ESP_LOGI(TAG, "Dice mode started successfully");
 }
 
 void DiceController::StopDiceMode() {
     if (!is_active_) {
         return;
     }
-    
-    ESP_LOGI(TAG, "Stopping dice mode");
     
     // 停止自动关闭定时器
     if (auto_close_timer_) {
@@ -159,7 +153,8 @@ void DiceController::StopDiceMode() {
     }
     
     is_active_ = false;
-    ESP_LOGI(TAG, "Dice mode stopped");
+    
+    // ESP SparkBot模式：IMU任务持续运行，不需要清理
 }
 
 void DiceController::OnStateChange(DeviceState previous_state, DeviceState current_state) {
@@ -171,16 +166,11 @@ void DiceController::OnStateChange(DeviceState previous_state, DeviceState curre
 }
 
 void DiceController::RollDice() {
-    ESP_LOGI(TAG, "RollDice called - is_active_: %s, dice_cube_: %p", 
-             is_active_ ? "true" : "false", dice_cube_.get());
-    
     if (!is_active_) {
-        ESP_LOGW(TAG, "RollDice failed: Dice mode is not active");
         return;
     }
     
     if (!dice_cube_) {
-        ESP_LOGE(TAG, "RollDice failed: dice_cube_ is null");
         return;
     }
     
@@ -191,11 +181,8 @@ void DiceController::RollDice() {
     uint32_t combined_random = hw_random ^ time_random;
     
     int random_face = combined_random % 6;
-    ESP_LOGI(TAG, "Rolling dice: hw_random=0x%x, time_random=0x%x, combined=0x%x, face=%d", 
-             hw_random, time_random, combined_random, random_face + 1);
     
     dice_cube_->UpdateDiceFace(random_face);
-    ESP_LOGI(TAG, "Dice rolled successfully to: %d", random_face + 1);
     
     // 通知应用程序记录骰子结果
     if (dice_result_callback_) {
@@ -204,4 +191,54 @@ void DiceController::RollDice() {
     
     // 设置10秒后自动关闭
     SetAutoClose(10);
+}
+
+// 使用ESP SparkBot的骰子惯性算法
+void DiceController::ApplyDiceInertiaUpdate(float dice_x_set, float dice_y_set, float dice_z_set) {
+    // 直接调用移植的C函数
+    bmi270_axis_t dice_axis = applyDiceInertia(dice_x_set, dice_y_set, dice_z_set);
+    
+    // 这里可以将骰子旋转数据发送给骰子立方体进行显示
+    // 当前的DiceCube实现可能不支持实时旋转动画
+}
+
+void DiceController::TriggerImuReading() {
+    // 这个方法现在不再需要，因为我们使用了真正的BMI270驱动
+}
+
+// 新的C接口函数，直接处理来自BMI270的IMU数据
+extern "C" void trigger_dice_with_imu_data(float pitch, float roll, float yaw) {
+    auto& dice_controller = DiceController::GetInstance();
+    
+    // 双重检查：确保骰子模式确实激活
+    if (!dice_controller.IsActive()) {
+        return;  // 骰子模式未激活，完全忽略IMU数据
+    }
+    
+    // 使用ESP SparkBot的算法处理IMU数据 - 仿照app_dice_event
+    dice_controller.ApplyDiceInertiaUpdate(pitch * 15, roll * 15, yaw * 15);
+    
+    // 检测强烈摇晃以触发骰子投掷
+    float shake_magnitude = fabsf(pitch) + fabsf(roll) + fabsf(yaw);
+    static float last_shake_time = 0;
+    float current_time = esp_timer_get_time() / 1000000.0f; // 转换为秒
+    
+    // 使用更高的摇晃阈值，避免误触发
+    const float SHAKE_THRESHOLD = 20.0f;  // 提高阈值到20度/秒
+    const float DEBOUNCE_TIME = 2.0f;     // 增加去抖时间到2秒
+    
+    if (shake_magnitude > SHAKE_THRESHOLD && (current_time - last_shake_time) > DEBOUNCE_TIME) {
+        dice_controller.RollDice();
+        last_shake_time = current_time;
+    }
+}
+
+// 保留旧的接口以保持兼容性
+extern "C" void trigger_dice_imu_update(void) {
+    // 这个函数现在不再使用，但保留以避免链接错误
+}
+
+// C接口函数，用于检查骰子模式是否激活
+extern "C" bool is_dice_mode_active(void) {
+    return DiceController::GetInstance().IsActive();
 }

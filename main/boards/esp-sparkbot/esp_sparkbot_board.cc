@@ -299,6 +299,15 @@ public:
     virtual Camera* GetCamera() override {
         return camera_;
     }
+
+    virtual i2c_master_bus_handle_t GetI2cBus() override {
+        return i2c_bus_;
+    }
 };
 
 DECLARE_BOARD(EspSparkBot);
+
+// C接口函数，供app_imu.c使用
+extern "C" i2c_master_bus_handle_t get_board_i2c_bus(void) {
+    return Board::GetInstance().GetI2cBus();
+}

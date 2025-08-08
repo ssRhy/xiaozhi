@@ -20,12 +20,9 @@ DiceCube::~DiceCube() {
 }
 
 bool DiceCube::Initialize() {
-    ESP_LOGI(TAG, "Initializing DiceCube");
-    
     // 创建图片对象 - LVGL 9.x 使用 lv_image_create
     cube_obj_ = lv_image_create(parent_);
     if (!cube_obj_) {
-        ESP_LOGE(TAG, "Failed to create cube object");
         return false;
     }
     
@@ -34,14 +31,12 @@ bool DiceCube::Initialize() {
     
     // 加载骰子纹理
     if (!LoadDiceTextures()) {
-        ESP_LOGE(TAG, "Failed to load dice textures");
         return false;
     }
     
     // 显示第一个面（骰子1）
     UpdateDiceFace(0);
     
-    ESP_LOGI(TAG, "DiceCube initialized successfully");
     return true;
 }
 
@@ -71,7 +66,6 @@ void DiceCube::UpdateRotation(const CubeAxisRotation& rotation) {
 
 void DiceCube::UpdateDiceFace(int face_index) {
     if (face_index < 0 || face_index >= 6 || !cube_obj_) {
-        ESP_LOGE(TAG, "Invalid face_index %d or null cube_obj", face_index);
         return;
     }
     
@@ -80,18 +74,16 @@ void DiceCube::UpdateDiceFace(int face_index) {
     size_t image_size = GetDiceImageSize(face_index);
     
     if (!image_data || image_size == 0) {
-        ESP_LOGE(TAG, "Failed to get dice image data for face %d", face_index + 1);
         return;
     }
     
-    ESP_LOGI(TAG, "Setting dice face %d, image_data=%p, size=%zu", 
-             face_index + 1, image_data, image_size);
+
     
     // 跳过BMP文件头（54字节），就像原始项目中一样
     const char* bmp_pixel_data = image_data + 54;
     size_t pixel_data_size = image_size - 54;
     
-    ESP_LOGI(TAG, "BMP pixel data: %p, size: %zu", bmp_pixel_data, pixel_data_size);
+    
     
     // 创建图片描述符，使用正确的BMP格式参数
     static lv_image_dsc_t img_dsc;
@@ -108,11 +100,11 @@ void DiceCube::UpdateDiceFace(int face_index) {
     lv_obj_set_size(cube_obj_, width_, height_);
     lv_obj_center(cube_obj_);
     
-    ESP_LOGI(TAG, "Successfully updated dice face to %d", face_index + 1);
+   
 }
 
 bool DiceCube::LoadDiceTextures() {
-    ESP_LOGI(TAG, "Loading dice textures...");
+   
     
     // 验证所有资源是否可用
     for (int i = 0; i < 6; i++) {
@@ -120,25 +112,24 @@ bool DiceCube::LoadDiceTextures() {
         size_t image_size = GetDiceImageSize(i);
         
         if (!image_data || image_size == 0) {
-            ESP_LOGE(TAG, "Failed to load dice image %d", i + 1);
+           
             return false;
         }
         
         // 检查BMP文件头
         if (image_size < 54) {
-            ESP_LOGE(TAG, "Image %d too small (%zu bytes), not a valid BMP", i + 1, image_size);
+            
             return false;
         }
         
         // 检查BMP签名
         if (image_data[0] != 'B' || image_data[1] != 'M') {
-            ESP_LOGW(TAG, "Image %d may not be a valid BMP file", i + 1);
+            // 可能不是有效的BMP文件，但继续尝试
         }
         
-        ESP_LOGI(TAG, "Verified dice texture %d: data=%p, size=%zu", 
-                 i + 1, image_data, image_size);
+        
     }
     
-    ESP_LOGI(TAG, "All dice textures verified successfully");
+    
     return true;
 }

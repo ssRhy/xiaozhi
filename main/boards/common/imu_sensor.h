@@ -4,7 +4,9 @@
 #include <driver/i2c_master.h>
 #include <esp_timer.h>
 #include <functional>
+#include "app_imu.h"
 
+// 与app_imu.h兼容的数据结构
 struct ImuAxisData {
     float pitch;
     float roll;
@@ -27,6 +29,7 @@ public:
     void Start();
     void Stop();
     void SetDataCallback(OnDataCallback callback);
+    void TriggerReading();  // 手动触发一次读取
     
 private:
     i2c_master_bus_handle_t i2c_bus_;

@@ -22,7 +22,8 @@ OledDisplay::OledDisplay(esp_lcd_panel_io_handle_t panel_io, esp_lcd_panel_handl
     ESP_LOGI(TAG, "Initialize LVGL");
     lvgl_port_cfg_t port_cfg = ESP_LVGL_PORT_INIT_CONFIG();
     port_cfg.task_priority = 1;
-    port_cfg.task_stack = 6144;
+    port_cfg.task_stack = 1024 * 30;  // 30KB栈空间，与ESP SparkBot一致
+    port_cfg.task_affinity = 1;       // 绑定到核心1，与ESP SparkBot一致
     port_cfg.timer_period_ms = 50;
     lvgl_port_init(&port_cfg);
 

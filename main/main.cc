@@ -8,6 +8,10 @@
 #include "application.h"
 #include "system_info.h"
 
+extern "C" {
+#include "boards/common/app_imu.h"
+}
+
 #define TAG "main"
 
 extern "C" void app_main(void)
