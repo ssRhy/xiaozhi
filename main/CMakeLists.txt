@@ -18,6 +18,7 @@ set(SOURCES "audio/audio_codec.cc"
             "protocols/mqtt_protocol.cc"
             "protocols/websocket_protocol.cc"
             "mcp_server.cc"
+            "bocha_search.cc"
             "system_info.cc"
             "application.cc"
             "ota.cc"
@@ -265,6 +266,7 @@ endif()
 idf_component_register(SRCS ${SOURCES}
                     EMBED_FILES ${LANG_SOUNDS} ${COMMON_SOUNDS}
                     INCLUDE_DIRS ${INCLUDE_DIRS}
+                    REQUIRES esp_http_client json esp_app_format spi_flash app_update efuse mbedtls
                     WHOLE_ARCHIVE
                     )
 

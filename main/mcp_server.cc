@@ -13,6 +13,7 @@
 #include "application.h"
 #include "display.h"
 #include "board.h"
+#include "bocha_search.h"
 
 #define TAG "MCP"
 
@@ -102,6 +103,9 @@ void McpServer::AddCommonTools() {
                 return camera->Explain(question);
             });
     }
+
+    // Add Bocha AI search tool
+    BochaSearch::RegisterTools();
 
     // Restore the original tools list to the end of the tools list
     tools_.insert(tools_.end(), original_tools.begin(), original_tools.end());
