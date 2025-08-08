@@ -16,6 +16,7 @@
 #include "ota.h"
 #include "audio_service.h"
 #include "device_state_event.h"
+#include "dice_controller.h"
 
 #define MAIN_EVENT_SCHEDULE (1 << 0)
 #define MAIN_EVENT_SEND_AUDIO (1 << 1)
@@ -60,6 +61,13 @@ public:
     AecMode GetAecMode() const { return aec_mode_; }
     void PlaySound(const std::string_view& sound);
     AudioService& GetAudioService() { return audio_service_; }
+    
+    // 骰子功能
+    void StartDiceMode();
+    void StopDiceMode();
+    bool IsDiceModeActive() const;
+    void SetLastDiceResult(int result);  // 设置最后骰子结果
+    int GetLastDiceResult() const;       // 获取最后骰子结果
 
 private:
     Application();
@@ -80,6 +88,9 @@ private:
     bool aborted_ = false;
     int clock_ticks_ = 0;
     TaskHandle_t check_new_version_task_handle_ = nullptr;
+    
+    // 骰子相关状态
+    int last_dice_result_ = 0;  // 最后一次骰子结果 (1-6, 0表示未投掷)
 
     void OnWakeWordDetected();
     void CheckNewVersion(Ota& ota);

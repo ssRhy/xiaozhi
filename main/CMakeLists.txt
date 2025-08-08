@@ -24,6 +24,9 @@ set(SOURCES "audio/audio_codec.cc"
             "ota.cc"
             "settings.cc"
             "device_state_event.cc"
+            "dice_controller.cc"
+            "display/dice_cube.cc"
+            "assets/dice_assets.cc"
             "main.cc"
             )
 
@@ -253,6 +256,7 @@ set(LANG_JSON "${CMAKE_CURRENT_SOURCE_DIR}/assets/${LANG_DIR}/language.json")
 set(LANG_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/assets/lang_config.h")
 file(GLOB LANG_SOUNDS ${CMAKE_CURRENT_SOURCE_DIR}/assets/${LANG_DIR}/*.p3)
 file(GLOB COMMON_SOUNDS ${CMAKE_CURRENT_SOURCE_DIR}/assets/common/*.p3)
+file(GLOB DICE_IMAGES ${CMAKE_CURRENT_SOURCE_DIR}/assets/dice/*.bmp)
 
 # 如果目标芯片是 ESP32，则排除特定文件
 if(CONFIG_IDF_TARGET_ESP32)
@@ -264,7 +268,7 @@ if(CONFIG_IDF_TARGET_ESP32)
 endif()
 
 idf_component_register(SRCS ${SOURCES}
-                    EMBED_FILES ${LANG_SOUNDS} ${COMMON_SOUNDS}
+                    EMBED_FILES ${LANG_SOUNDS} ${COMMON_SOUNDS} ${DICE_IMAGES}
                     INCLUDE_DIRS ${INCLUDE_DIRS}
                     REQUIRES esp_http_client json esp_app_format spi_flash app_update efuse mbedtls
                     WHOLE_ARCHIVE

@@ -366,8 +366,82 @@ void Application::Start() {
     // Initialize the protocol
     display->SetStatus(Lang::Strings::LOADING_PROTOCOL);
 
+    // Initialize DiceController
+    DiceController::GetInstance().Initialize();
+    
+    // 设置骰子结果回调，让AI记住骰子点数
+    DiceController::GetInstance().SetDiceResultCallback([this](int result) {
+        SetLastDiceResult(result);
+    });
+    
     // Add MCP common tools before initializing the protocol
     McpServer::GetInstance().AddCommonTools();
+    
+    // Add dice-related MCP tools
+    McpServer::GetInstance().AddTool("dice.start",
+        "Start the dice mode to display an interactive dice cube. Use this when the user wants to play dice or needs a random number generator.",
+        PropertyList(),
+        [this](const PropertyList& properties) -> ReturnValue {
+            StartDiceMode();
+            return "Dice mode started successfully. The dice cube is now displayed on the screen.";
+        });
+    
+    McpServer::GetInstance().AddTool("dice.stop", 
+        "Stop the dice mode and return to normal display mode.",
+        PropertyList(),
+        [this](const PropertyList& properties) -> ReturnValue {
+            StopDiceMode();
+            return "Dice mode stopped successfully.";
+        });
+    
+    McpServer::GetInstance().AddTool("dice.status",
+        "Check if the dice mode is currently active.",
+        PropertyList(),
+        [this](const PropertyList& properties) -> ReturnValue {
+            bool active = IsDiceModeActive();
+            return active ? "Dice mode is currently active." : "Dice mode is not active.";
+        });
+
+    McpServer::GetInstance().AddTool("dice.roll",
+        "Roll the dice to show a random number (1-6). Automatically starts dice mode if not active.",
+        PropertyList(),
+        [this](const PropertyList& properties) -> ReturnValue {
+            auto& dice_controller = DiceController::GetInstance();
+            
+            // 如果骰子模式没有启动，先启动它
+            if (!IsDiceModeActive()) {
+                dice_controller.StartDiceMode();
+                // 给一点时间让界面初始化
+                vTaskDelay(pdMS_TO_TICKS(100));
+            }
+            
+            // 投掷骰子
+            if (IsDiceModeActive()) {
+                dice_controller.RollDice();
+                // 等待一小段时间确保结果被记录
+                vTaskDelay(pdMS_TO_TICKS(50));
+                int result = GetLastDiceResult();
+                if (result > 0) {
+                    return "Dice rolled! The result is " + std::to_string(result) + " points. The dice is now displayed on the screen.";
+                } else {
+                    return "Dice rolled! The result is now displayed on the screen.";
+                }
+            } else {
+                return "Failed to start dice mode. Please check the display.";
+            }
+        });
+    
+    McpServer::GetInstance().AddTool("dice.last_result",
+        "Get the last dice roll result. Use this when user asks about the previous dice result or wants to reference it.",
+        PropertyList(),
+        [this](const PropertyList& properties) -> ReturnValue {
+            int result = GetLastDiceResult();
+            if (result > 0) {
+                return "The last dice roll result was " + std::to_string(result) + " points.";
+            } else {
+                return "No dice has been rolled yet.";
+            }
+        });
 
     if (ota.HasMqttConfig()) {
         protocol_ = std::make_unique<MqttProtocol>();
@@ -770,4 +844,35 @@ void Application::SetAecMode(AecMode mode) {
 
 void Application::PlaySound(const std::string_view& sound) {
     audio_service_.PlaySound(sound);
+}
+
+void Application::StartDiceMode() {
+    ESP_LOGI(TAG, "Starting dice mode");
+    Schedule([this]() {
+        if (device_state_ == kDeviceStateIdle) {
+            DiceController::GetInstance().StartDiceMode();
+        } else {
+            ESP_LOGW(TAG, "Cannot start dice mode in current state");
+        }
+    });
+}
+
+void Application::StopDiceMode() {
+    ESP_LOGI(TAG, "Stopping dice mode");
+    Schedule([this]() {
+        DiceController::GetInstance().StopDiceMode();
+    });
+}
+
+bool Application::IsDiceModeActive() const {
+    return DiceController::GetInstance().IsActive();
+}
+
+void Application::SetLastDiceResult(int result) {
+    last_dice_result_ = result;
+    ESP_LOGI(TAG, "Dice result recorded: %d", result);
+}
+
+int Application::GetLastDiceResult() const {
+    return last_dice_result_;
 }
