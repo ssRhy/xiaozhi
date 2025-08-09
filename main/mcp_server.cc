@@ -369,3 +369,23 @@ void McpServer::DoToolCall(int id, const std::string& tool_name, const cJSON* to
     });
     tool_call_thread_.detach();
 }
+
+bool McpServer::CallToolLocal(const std::string& tool_name) {
+    auto tool_iter = std::find_if(tools_.begin(), tools_.end(),
+        [&tool_name](const McpTool* tool) { return tool->name() == tool_name; });
+    if (tool_iter == tools_.end()) {
+        ESP_LOGE(TAG, "CallToolLocal: Unknown tool: %s", tool_name.c_str());
+        return false;
+    }
+
+    try {
+        PropertyList arguments = (*tool_iter)->properties();
+        // No arguments provided; rely on defaults if any
+        auto result = (*tool_iter)->Call(arguments);
+        (void)result; // result is a JSON string, discard for local calls
+        return true;
+    } catch (const std::exception& e) {
+        ESP_LOGE(TAG, "CallToolLocal: %s", e.what());
+        return false;
+    }
+}

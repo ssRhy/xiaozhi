@@ -262,6 +262,10 @@ public:
     void ParseMessage(const cJSON* json);
     void ParseMessage(const std::string& message);
 
+    // Execute a tool locally (without network round-trip). This uses the tool's
+    // default properties (i.e., no arguments). Returns true on success.
+    bool CallToolLocal(const std::string& tool_name);
+
 private:
     McpServer();
     ~McpServer();

@@ -182,24 +182,34 @@ void DiceController::RollDice() {
     
     int random_face = combined_random % 6;
     
-    dice_cube_->UpdateDiceFace(random_face);
+    // 启动骰子旋转动画而不是直接更新面
+    dice_cube_->StartRollingAnimation(random_face);
     
     // 通知应用程序记录骰子结果
     if (dice_result_callback_) {
         dice_result_callback_(random_face + 1);  // 传递1-6的点数
     }
     
-    // 设置10秒后自动关闭
-    SetAutoClose(10);
+    // 设置15秒后自动关闭（给动画更多时间）
+    SetAutoClose(15);
 }
 
 // 使用ESP SparkBot的骰子惯性算法
 void DiceController::ApplyDiceInertiaUpdate(float dice_x_set, float dice_y_set, float dice_z_set) {
+    if (!is_active_ || !dice_cube_) {
+        return;
+    }
+    
     // 直接调用移植的C函数
     bmi270_axis_t dice_axis = applyDiceInertia(dice_x_set, dice_y_set, dice_z_set);
     
-    // 这里可以将骰子旋转数据发送给骰子立方体进行显示
-    // 当前的DiceCube实现可能不支持实时旋转动画
+    // 将骰子旋转数据发送给骰子立方体进行实时显示
+    CubeAxisRotation rotation;
+    rotation.pitch = dice_axis.pitch;
+    rotation.yaw = dice_axis.yaw;
+    rotation.roll = dice_axis.roll;
+    
+    dice_cube_->UpdateRotation(rotation);
 }
 
 void DiceController::TriggerImuReading() {

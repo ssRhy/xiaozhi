@@ -527,7 +527,18 @@ void Application::Start() {
             auto emotion = cJSON_GetObjectItem(root, "emotion");
             if (cJSON_IsString(emotion)) {
                 Schedule([this, display, emotion_str = std::string(emotion->valuestring)]() {
+                    // 更新表情
                     display->SetEmotion(emotion_str.c_str());
+                    // 最小单元映射：当情绪为 happy 时，触发底盘跳舞
+                    if (emotion_str == "happy") {
+                        McpServer::GetInstance().CallToolLocal("self.chassis.dance");
+                    } else if (emotion_str == "sad") {
+                        // 难过：前进
+                        McpServer::GetInstance().CallToolLocal("self.chassis.go_forward");
+                    } else if (emotion_str == "angry") {
+                        // 愤怒：后退
+                        McpServer::GetInstance().CallToolLocal("self.chassis.go_back");
+                    }
                 });
             }
         } else if (strcmp(type->valuestring, "mcp") == 0) {
