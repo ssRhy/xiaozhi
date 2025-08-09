@@ -389,3 +389,47 @@ bool McpServer::CallToolLocal(const std::string& tool_name) {
         return false;
     }
 }
+
+bool McpServer::CallToolLocal(const std::string& tool_name, const cJSON* tool_arguments) {
+    auto tool_iter = std::find_if(tools_.begin(), tools_.end(),
+        [&tool_name](const McpTool* tool) { return tool->name() == tool_name; });
+    if (tool_iter == tools_.end()) {
+        ESP_LOGE(TAG, "CallToolLocal(args): Unknown tool: %s", tool_name.c_str());
+        return false;
+    }
+
+    try {
+        PropertyList arguments = (*tool_iter)->properties();
+        // Fill properties from tool_arguments (reuse logic similar to DoToolCall)
+        if (cJSON_IsObject(tool_arguments)) {
+            for (auto& argument : arguments) {
+                auto value = cJSON_GetObjectItem(tool_arguments, argument.name().c_str());
+                if (argument.type() == kPropertyTypeBoolean && cJSON_IsBool(value)) {
+                    argument.set_value<bool>(value->valueint == 1);
+                } else if (argument.type() == kPropertyTypeInteger && cJSON_IsNumber(value)) {
+                    argument.set_value<int>(value->valueint);
+                } else if (argument.type() == kPropertyTypeString && cJSON_IsString(value)) {
+                    argument.set_value<std::string>(value->valuestring);
+                }
+            }
+        }
+        auto result = (*tool_iter)->Call(arguments);
+        (void)result;
+        return true;
+    } catch (const std::exception& e) {
+        ESP_LOGE(TAG, "CallToolLocal(args): %s", e.what());
+        return false;
+    }
+}
+
+bool McpServer::CallToolLocal(const std::string& tool_name, const std::string& arguments_json) {
+    cJSON* json = cJSON_Parse(arguments_json.c_str());
+    if (!json || !cJSON_IsObject(json)) {
+        ESP_LOGE(TAG, "CallToolLocal(json): Invalid JSON arguments: %s", arguments_json.c_str());
+        if (json) cJSON_Delete(json);
+        return false;
+    }
+    bool ok = CallToolLocal(tool_name, json);
+    cJSON_Delete(json);
+    return ok;
+}

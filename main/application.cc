@@ -529,15 +529,23 @@ void Application::Start() {
                 Schedule([this, display, emotion_str = std::string(emotion->valuestring)]() {
                     // 更新表情
                     display->SetEmotion(emotion_str.c_str());
-                    // 最小单元映射：当情绪为 happy 时，触发底盘跳舞
+
+                    // 情绪→灯光映射
+                    auto& mcp = McpServer::GetInstance();
                     if (emotion_str == "happy") {
-                        McpServer::GetInstance().CallToolLocal("self.chassis.dance");
+                        // 明亮/活跃灯效：示例取 6（允许范围 3..8）
+                        mcp.CallToolLocal("self.chassis.switch_light_mode", std::string("{\"light_mode\":6}"));
+                        // 可选：触发跳舞
+                        mcp.CallToolLocal("self.chassis.dance");
                     } else if (emotion_str == "sad") {
-                        // 难过：前进
-                        McpServer::GetInstance().CallToolLocal("self.chassis.go_forward");
+                        // 柔和灯效：示例取 3
+                        mcp.CallToolLocal("self.chassis.switch_light_mode", std::string("{\"light_mode\":3}"));
                     } else if (emotion_str == "angry") {
-                        // 愤怒：后退
-                        McpServer::GetInstance().CallToolLocal("self.chassis.go_back");
+                        // 强烈灯效：示例取 8
+                        mcp.CallToolLocal("self.chassis.switch_light_mode", std::string("{\"light_mode\":5}"));
+                    } else if (emotion_str == "calm" || emotion_str == "neutral") {
+                        // 中性/舒缓：示例取 4 或 5
+                        mcp.CallToolLocal("self.chassis.switch_light_mode", std::string("{\"light_mode\":4}"));
                     }
                 });
             }

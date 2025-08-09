@@ -266,6 +266,14 @@ public:
     // default properties (i.e., no arguments). Returns true on success.
     bool CallToolLocal(const std::string& tool_name);
 
+    // Execute a tool locally with arguments (JSON object as cJSON*).
+    // Returns true on success.
+    bool CallToolLocal(const std::string& tool_name, const cJSON* tool_arguments);
+
+    // Execute a tool locally with arguments provided as JSON string
+    // (must be a JSON object). Returns true on success.
+    bool CallToolLocal(const std::string& tool_name, const std::string& arguments_json);
+
 private:
     McpServer();
     ~McpServer();
