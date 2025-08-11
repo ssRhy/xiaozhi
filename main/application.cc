@@ -542,7 +542,7 @@ void Application::Start() {
                         mcp.CallToolLocal("self.chassis.switch_light_mode", std::string("{\"light_mode\":3}"));
                     } else if (emotion_str == "angry") {
                         // 强烈灯效：示例取 8
-                        mcp.CallToolLocal("self.chassis.switch_light_mode", std::string("{\"light_mode\":5}"));
+                        mcp.CallToolLocal("self.chassis.switch_light_mode", std::string("{\"light_mode\":}"));
                     } else if (emotion_str == "calm" || emotion_str == "neutral") {
                         // 中性/舒缓：示例取 4 或 5
                         mcp.CallToolLocal("self.chassis.switch_light_mode", std::string("{\"light_mode\":4}"));

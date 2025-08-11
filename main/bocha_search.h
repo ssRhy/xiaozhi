@@ -8,6 +8,7 @@
 
 #include "mcp_server.h"
 #include <string>
+#include <esp_http_client.h>
 
 class BochaSearch {
 public:
@@ -19,6 +20,9 @@ public:
     
     // 构建搜索请求体
     static std::string BuildSearchPayload(const std::string& query, int count, bool summary = true);
+    
+    // HTTP 事件处理器
+    static esp_err_t HttpEventHandler(esp_http_client_event_t *evt);
     
     // 执行 HTTP POST 请求
     static std::string HttpPost(const std::string& payload);

@@ -24,6 +24,7 @@ public:
     void UpdateRotation(const CubeAxisRotation& rotation);
     void UpdateDiceFace(int face_index);  // 直接更新到指定面
     void StartRollingAnimation(int final_face);  // 启动骰子旋转动画
+    void StopAnimation();  // 停止骰子旋转动画
     lv_obj_t* GetObject() { return cube_obj_; }
     
 private:

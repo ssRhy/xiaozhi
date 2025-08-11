@@ -170,6 +170,11 @@ void DiceCube::StartRollingAnimation(int final_face) {
     ESP_LOGI(TAG, "Started dice rolling animation to face %d", final_face + 1);
 }
 
+void DiceCube::StopAnimation() {
+    // 停止旋转动画（使用本文件的静态状态）
+    is_rolling = false;
+}
+
 bool DiceCube::LoadDiceTextures() {
    
     
