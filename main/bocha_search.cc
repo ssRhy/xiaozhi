@@ -50,6 +50,31 @@ void BochaSearch::RegisterTools() {
         DoSearch
     );
 
+    // 添加专门的服装搜索工具
+    mcp_server.AddTool(
+        "self.search.outfit",
+        "专门用于服装穿搭的智能搜索，根据风格、颜色、季节等维度推荐衣物。\n"
+        "参数说明:\n"
+        "- style: 服装风格(如休闲、正式、运动、时尚等)\n"
+        "- colors: 颜色搭配(如黑色、白色、蓝色等)\n"
+        "- season: 适合季节(春夏秋冬)\n"
+        "- item_type: 服装类型(如上衣、裤子、鞋子、配饰等)\n"
+        "- count: 返回结果数量(1-4, 默认3)\n"
+        "使用场景:\n"
+        "1. 根据现有穿搭寻找配套衣物\n"
+        "2. 按特定风格搜索服装\n"
+        "3. 季节性服装推荐\n"
+        "4. 特定场合的穿搭建议",
+        PropertyList({
+            Property("style", kPropertyTypeString, ""),
+            Property("colors", kPropertyTypeString, ""),
+            Property("season", kPropertyTypeString, ""),
+            Property("item_type", kPropertyTypeString, ""),
+            Property("count", kPropertyTypeInteger, 3, 1, 4)
+        }),
+        DoOutfitSearch
+    );
+
     ESP_LOGI(TAG, "Bocha AI search tool registered successfully");
 }
 
@@ -133,7 +158,17 @@ std::string BochaSearch::UrlEncode(const std::string& str) {
 std::string BochaSearch::BuildSearchPayload(const std::string& query, int count, bool summary) {
     cJSON* payload = cJSON_CreateObject();
     
-    cJSON_AddStringToObject(payload, "query", query.c_str());
+    // 检查是否是服装搜索，如果是则优化查询
+    std::string optimized_query = query;
+    if (query.find("服装") != std::string::npos || 
+        query.find("穿搭") != std::string::npos || 
+        query.find("搭配") != std::string::npos ||
+        query.find("时尚") != std::string::npos) {
+        // 为服装搜索添加购物相关关键词
+        optimized_query += " 购买 商品 价格 品牌 店铺";
+    }
+    
+    cJSON_AddStringToObject(payload, "query", optimized_query.c_str());
     cJSON_AddStringToObject(payload, "freshness", "noLimit");
     cJSON_AddBoolToObject(payload, "summary", summary);
     cJSON_AddNumberToObject(payload, "count", count);
@@ -402,4 +437,226 @@ ReturnValue BochaSearch::DoSearch(const PropertyList& properties) {
         error_msg += "\"}";
         return error_msg;
     }
+}
+
+std::string BochaSearch::BuildOutfitSearchPayload(const std::string& style, const std::string& colors, 
+                                                  const std::string& season, const std::string& item_type, int count) {
+    cJSON* payload = cJSON_CreateObject();
+    
+    // 构建专门的服装搜索查询
+    std::string query;
+    
+    // 添加风格
+    if (!style.empty()) {
+        query += style + "风格 ";
+    }
+    
+    // 添加颜色
+    if (!colors.empty()) {
+        query += colors + " ";
+    }
+    
+    // 添加季节
+    if (!season.empty()) {
+        query += season + " ";
+    }
+    
+    // 添加服装类型
+    if (!item_type.empty()) {
+        query += item_type + " ";
+    }
+    
+    // 添加购物和品牌相关关键词
+    query += "服装 穿搭 搭配 购买 商品 价格 品牌 店铺 时尚 推荐";
+    
+    cJSON_AddStringToObject(payload, "query", query.c_str());
+    cJSON_AddStringToObject(payload, "freshness", "noLimit");
+    cJSON_AddBoolToObject(payload, "summary", true);
+    cJSON_AddNumberToObject(payload, "count", count);
+    
+    char* json_str = cJSON_PrintUnformatted(payload);
+    std::string result(json_str);
+    
+    cJSON_free(json_str);
+    cJSON_Delete(payload);
+    
+    return result;
+}
+
+ReturnValue BochaSearch::DoOutfitSearch(const PropertyList& properties) {
+    try {
+        std::string style = properties["style"].value<std::string>();
+        std::string colors = properties["colors"].value<std::string>();
+        std::string season = properties["season"].value<std::string>();
+        std::string item_type = properties["item_type"].value<std::string>();
+        int count = properties["count"].value<int>();
+        
+        ESP_LOGI(TAG, "Performing outfit search: style='%s', colors='%s', season='%s', item_type='%s', count=%d", 
+                style.c_str(), colors.c_str(), season.c_str(), item_type.c_str(), count);
+        
+        // 构建服装搜索请求体
+        std::string search_payload = BuildOutfitSearchPayload(style, colors, season, item_type, count);
+        
+        // 执行 HTTP POST 请求
+        std::string json_content = HttpPost(search_payload);
+        
+        if (json_content.empty()) {
+            ESP_LOGE(TAG, "Failed to get outfit search results");
+            return "{\"status\": \"error\", \"message\": \"无法获取服装搜索结果，请检查网络连接\"}";
+        }
+        
+        // 解析服装搜索结果
+        std::string results = ParseOutfitSearchResults(json_content);
+        
+        ESP_LOGI(TAG, "Outfit search completed successfully");
+        return results;
+        
+    } catch (const std::exception& e) {
+        ESP_LOGE(TAG, "Outfit search failed: %s", e.what());
+        std::string error_msg = "{\"status\": \"error\", \"message\": \"服装搜索失败: ";
+        error_msg += e.what();
+        error_msg += "\"}";
+        return error_msg;
+    }
+}
+
+std::string BochaSearch::ParseOutfitSearchResults(const std::string& json_content) {
+    ESP_LOGD(TAG, "Parsing outfit search JSON response (%zu bytes)", json_content.length());
+    
+    // 使用基础的解析函数，然后增强结果
+    std::string basic_results = ParseSearchResults(json_content);
+    
+    // 解析基础结果
+    cJSON* basic_json = cJSON_Parse(basic_results.c_str());
+    if (!basic_json) {
+        return basic_results; // 如果解析失败，返回原始结果
+    }
+    
+    auto status = cJSON_GetObjectItem(basic_json, "status");
+    if (!status || !cJSON_IsString(status) || strcmp(status->valuestring, "success") != 0) {
+        cJSON_Delete(basic_json);
+        return basic_results; // 如果不成功，返回原始结果
+    }
+    
+    // 创建增强的结果对象
+    cJSON* enhanced_result = cJSON_CreateObject();
+    cJSON_AddStringToObject(enhanced_result, "status", "success");
+    cJSON_AddStringToObject(enhanced_result, "search_type", "outfit_recommendation");
+    cJSON_AddStringToObject(enhanced_result, "search_engine", "Bocha AI");
+    
+    // 复制基础信息
+    auto total_results = cJSON_GetObjectItem(basic_json, "total_results");
+    if (total_results && cJSON_IsNumber(total_results)) {
+        cJSON_AddNumberToObject(enhanced_result, "total_results", total_results->valueint);
+    }
+    
+    auto query = cJSON_GetObjectItem(basic_json, "query");
+    if (query && cJSON_IsString(query)) {
+        cJSON_AddStringToObject(enhanced_result, "query", query->valuestring);
+    }
+    
+    // 处理搜索结果并增强服装相关信息
+    auto results = cJSON_GetObjectItem(basic_json, "results");
+    if (results && cJSON_IsArray(results)) {
+        cJSON* enhanced_results = cJSON_CreateArray();
+        
+        int count = cJSON_GetArraySize(results);
+        for (int i = 0; i < count; i++) {
+            cJSON* item = cJSON_GetArrayItem(results, i);
+            if (!cJSON_IsObject(item)) continue;
+            
+            cJSON* enhanced_item = cJSON_CreateObject();
+            
+            // 复制基础字段
+            auto title = cJSON_GetObjectItem(item, "title");
+            if (cJSON_IsString(title)) {
+                cJSON_AddStringToObject(enhanced_item, "title", title->valuestring);
+            }
+            
+            auto link = cJSON_GetObjectItem(item, "link");
+            if (cJSON_IsString(link)) {
+                cJSON_AddStringToObject(enhanced_item, "link", link->valuestring);
+            }
+            
+            auto snippet = cJSON_GetObjectItem(item, "snippet");
+            if (cJSON_IsString(snippet)) {
+                cJSON_AddStringToObject(enhanced_item, "snippet", snippet->valuestring);
+                
+                // 从片段中提取服装相关信息
+                std::string snippet_text = snippet->valuestring;
+                
+                // 提取价格信息
+                if (snippet_text.find("¥") != std::string::npos) {
+                    size_t price_start = snippet_text.find("¥");
+                    size_t price_end = snippet_text.find(" ", price_start);
+                    if (price_end != std::string::npos) {
+                        std::string price = snippet_text.substr(price_start, price_end - price_start);
+                        cJSON_AddStringToObject(enhanced_item, "price", price.c_str());
+                    }
+                } else if (snippet_text.find("元") != std::string::npos) {
+                    // 处理"元"的价格格式
+                    size_t yuan_pos = snippet_text.find("元");
+                    if (yuan_pos > 0) {
+                        size_t price_start = yuan_pos - 1;
+                        while (price_start > 0 && (isdigit(snippet_text[price_start - 1]) || snippet_text[price_start - 1] == '.')) {
+                            price_start--;
+                        }
+                        std::string price = snippet_text.substr(price_start, yuan_pos - price_start + 1);
+                        cJSON_AddStringToObject(enhanced_item, "price", price.c_str());
+                    }
+                }
+                
+                // 检测是否包含品牌信息
+                std::vector<std::string> brands = {"优衣库", "ZARA", "H&M", "Nike", "Adidas", "无印良品", "海澜之家"};
+                for (const auto& brand : brands) {
+                    if (snippet_text.find(brand) != std::string::npos) {
+                        cJSON_AddStringToObject(enhanced_item, "brand", brand.c_str());
+                        break;
+                    }
+                }
+                
+                // 检测服装类型
+                std::vector<std::string> types = {"T恤", "衬衫", "裤子", "裙子", "外套", "鞋子", "帽子", "包包"};
+                for (const auto& type : types) {
+                    if (snippet_text.find(type) != std::string::npos) {
+                        cJSON_AddStringToObject(enhanced_item, "clothing_type", type.c_str());
+                        break;
+                    }
+                }
+            }
+            
+            auto siteName = cJSON_GetObjectItem(item, "siteName");
+            if (cJSON_IsString(siteName)) {
+                cJSON_AddStringToObject(enhanced_item, "siteName", siteName->valuestring);
+            }
+            
+            // 添加推荐评分（基于标题和片段的关键词匹配）
+            int relevance_score = 0;
+            if (title && cJSON_IsString(title)) {
+                std::string title_text = title->valuestring;
+                if (title_text.find("时尚") != std::string::npos) relevance_score += 2;
+                if (title_text.find("搭配") != std::string::npos) relevance_score += 2;
+                if (title_text.find("推荐") != std::string::npos) relevance_score += 1;
+            }
+            cJSON_AddNumberToObject(enhanced_item, "relevance_score", relevance_score);
+            
+            cJSON_AddItemToArray(enhanced_results, enhanced_item);
+        }
+        
+        cJSON_AddItemToObject(enhanced_result, "results", enhanced_results);
+    }
+    
+    // 添加服装搜索特有的建议
+    cJSON_AddStringToObject(enhanced_result, "shopping_advice", "建议对比多个商品的价格、质量和用户评价再购买");
+    cJSON_AddStringToObject(enhanced_result, "style_tip", "选择服装时要考虑与现有衣物的搭配协调性");
+    
+    // 转换为字符串
+    char* json_str = cJSON_PrintUnformatted(enhanced_result);
+    std::string result_str(json_str);
+    
+    cJSON_free(json_str);
+    cJSON_Delete(enhanced_result);
+    cJSON_Delete(basic_json);
+    
+    return result_str;
 }

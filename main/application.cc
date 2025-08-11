@@ -8,6 +8,7 @@
 #include "font_awesome_symbols.h"
 #include "assets/lang_config.h"
 #include "mcp_server.h"
+#include "outfit_analyzer.h"
 
 // 添加这行
 extern "C" {
@@ -384,6 +385,13 @@ void Application::Start() {
     
     // Add MCP common tools before initializing the protocol
     McpServer::GetInstance().AddCommonTools();
+    
+    // Add outfit analyzer tools and set camera
+    auto camera = board.GetCamera();
+    if (camera) {
+        OutfitAnalyzer::GetInstance().SetCamera(camera);
+        OutfitAnalyzer::RegisterTools();
+    }
     
     // Add dice-related MCP tools
     McpServer::GetInstance().AddTool("dice.start",

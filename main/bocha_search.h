@@ -32,6 +32,16 @@ public:
     
     // 执行搜索的回调函数
     static ReturnValue DoSearch(const PropertyList& properties);
+    
+    // 专门的服装推荐搜索
+    static ReturnValue DoOutfitSearch(const PropertyList& properties);
+    
+    // 构建专门的服装搜索请求体
+    static std::string BuildOutfitSearchPayload(const std::string& style, const std::string& colors, 
+                                                const std::string& season, const std::string& item_type, int count);
+    
+    // 解析服装搜索结果（增强版）
+    static std::string ParseOutfitSearchResults(const std::string& json_content);
 };
 
 #endif // BOCHA_SEARCH_H
